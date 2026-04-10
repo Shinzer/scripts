@@ -1,7 +1,7 @@
 # scripts
 
 
-##activeHunt
+## activeHunt
 1. Download activeHunt script.
 2. Move it to /usr/local/bin/
 3. chmod +x activehunt
